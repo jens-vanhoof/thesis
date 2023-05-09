@@ -7,4 +7,5 @@
     android:orientation="vertical"
     android:padding="6dp"
     android:text="Tiger"
-    android:textAlignment="center" />
+    android:textAlignment="center"
+    android:id="@+id/test"/>

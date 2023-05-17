@@ -1,6 +1,7 @@
 package com.example.test;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -11,7 +12,6 @@ import com.google.android.filament.Box;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Config;
-import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Session;
@@ -37,10 +37,9 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import org.w3c.dom.Text;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -234,46 +233,25 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
             Node node = arFragment.getTransformationSystem().getSelectedNode();
             if(node != null && node.getChildren() != null){
                 Vector3 vector = node.getChildren().get(0).getWorldScale();
-                if(this.diameter){
-                    Node diameter = findNodeByName(node.getChildren(),"diameter");
-                    ViewRenderable diameterView = (ViewRenderable) diameter.getRenderable();
-                    if(diameterView != null) ((TextView) diameterView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.x));
-                }
-                if(this.height){
-                    Node height = findNodeByName(node.getChildren(),"height");
-                    ViewRenderable heightView = (ViewRenderable) height.getRenderable();
-                    if(heightView != null) ((TextView) heightView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.y));
-                }
-                if(this.length){
-                    Node length = findNodeByName(node.getChildren(),"length");
-                    ViewRenderable lengthView = (ViewRenderable) length.getRenderable();
-                    if(lengthView != null) ((TextView) lengthView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.z));
-                }
-                if(this.width){
-                    Node width = findNodeByName(node.getChildren(),"width");
-                    ViewRenderable widthView = (ViewRenderable) width.getRenderable();
-                    if(widthView != null) ((TextView) widthView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.x));
-                }
-                double volumeValue = 0;
-                if(node.getName() == "cylinder"){
-                    double d = vector.x/2;
-                    double h = vector.y;
-                    volumeValue = Math.PI * Math.pow(d,2) * h;
-                }else if(node.getName() == "sphere"){
-                    double r = vector.x/2;
-                    volumeValue = (4/3)*Math.PI*Math.pow(r,3);
-                }
-                if(node.getName() == "pyramid"){
-                    double l = vector.x;
-                    double w = vector.y;
-                    double h = vector.z;
-                    volumeValue = (l*w*h)/3;
-                }
+                updateTextFields(this.diameter, node, "diameter", vector.x);
+                updateTextFields(this.height, node, "height", vector.y);
+                updateTextFields(this.length, node, "length", vector.z);
+                updateTextFields(this.width, node, "width", vector.x);
+                double volumeValue = getVolumeValue(node.getName());
 
                 TextView v = (TextView) findViewById(R.id.volume);
                 v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
             }
     }
+
+    private void updateTextFields(boolean prop, Node node, String name, float vector) {
+        if(prop){
+            Node n = findNodeByName(node.getChildren(), name);
+            ViewRenderable view = (ViewRenderable) n.getRenderable();
+            if(view != null) ((TextView) view.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector));
+        }
+    }
+
     @Override
     public void onTapPlane(HitResult hitResult, Plane plane, MotionEvent motionEvent) {
 
@@ -311,89 +289,19 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
 //        btn.setOnClickListener(view -> objectAnimator.start());
         model.select();
 
-        Node diameter = new Node();
-        diameter.setParent(model);
-        diameter.setEnabled(false);
-        diameter.setLocalPosition(new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f));
-        diameter.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        diameter.setName("diameter");
-        ViewRenderable.builder()
-                        .setView(this, R.layout.view_model_title)
-                        .build()
-                        .thenAccept(renderable -> {
-                                ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
-                                diameter.setRenderable(renderable);
-                        }).exceptionally(throwable -> {
-                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                            return null;
-                        });
+        Vector3 diameterPosition = new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f);
+        Node diameter = addNode(model,diameterPosition,"diameter",dimensions.get(0));
 
-        Node height = new Node();
-        height.setParent(model);
-        height.setEnabled(false);
-        height.setLocalPosition(new Vector3((float)dimensions.get(0)/100, ((float)dimensions.get(2)/100)/2-0.04f, 0.0f));
-        height.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        height.setName("height");
-        ViewRenderable.builder()
-                        .setView(this, R.layout.view_model_title)
-                        .build()
-                        .thenAccept(renderable -> {
-                                ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(2)));
-                                height.setRenderable(renderable);
-                        }).exceptionally(throwable -> {
-                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                            return null;
-                        });
+        Vector3 heightPosition = new Vector3((float)dimensions.get(0)/100, ((float)dimensions.get(2)/100)/2-0.04f, 0.0f);
+        Node height = addNode(model,heightPosition,"height",dimensions.get(2));
 
-        Node length = new Node();
-        length.setParent(model);
-        length.setEnabled(false);
-        length.setLocalPosition(new Vector3((float)dimensions.get(0)/100, -0.08f, 0.0f));
-        length.setLocalRotation(Quaternion.axisAngle(new Vector3(0f,1f,0f),90));
-        length.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        length.setName("length");
-        ViewRenderable.builder()
-                        .setView(this, R.layout.view_model_title)
-                        .build()
-                        .thenAccept(renderable -> {
-                            ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
-                            length.setRenderable(renderable);
-                        }).exceptionally(throwable -> {
-                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                            return null;
-                        });
+        Vector3 lengthPosition = new Vector3((float)dimensions.get(0)/100, -0.08f, 0.0f);
+        Node length = addNode(model,lengthPosition,"length",dimensions.get(0),Quaternion.axisAngle(new Vector3(0f,1f,0f),90));
 
-        Node width = new Node();
-        width.setParent(model);
-        width.setEnabled(false);
-        width.setLocalPosition(new Vector3(0.0f, -0.08f, (float)dimensions.get(0)/100));
-        width.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        width.setName("width");
-        ViewRenderable.builder()
-                        .setView(this, R.layout.view_model_title)
-                        .build()
-                        .thenAccept(renderable -> {
-                            ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(1)));
-                            width.setRenderable(renderable);
-                        }).exceptionally(throwable -> {
-                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                            return null;
-                        });
-        double volumeValue = 0;
-        if(model.getName() == "cylinder"){
-            double d = dimensions.get(0).doubleValue();
-            double h = dimensions.get(2).doubleValue();
-            volumeValue = Math.PI * Math.pow(d/2,2) * h;
-        }else if(model.getName() == "sphere"){
-            double r = dimensions.get(0).doubleValue()/2;
-            volumeValue = (4/3)*Math.PI*Math.pow(r,3);
-        }
-        if(model.getName() == "pyramid"){
-            double l = dimensions.get(0).doubleValue();
-            double w = dimensions.get(1).doubleValue();
-            double h = dimensions.get(2).doubleValue();
-            volumeValue = (l*w*h)/3;
-        }
+        Vector3 widthPosition = new Vector3(0.0f, -0.08f, (float)dimensions.get(0)/100);
+        Node width = addNode(model,widthPosition,"width",dimensions.get(1));
+
+        double volumeValue = getVolumeValue(model.getName());
 
         TextView v = (TextView) findViewById(R.id.volume);
         v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
@@ -414,5 +322,66 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
             width.setEnabled(true);
         }
 
+    }
+
+    private double getVolumeValue(String model) {
+        if(model == "cylinder"){
+            double d = dimensions.get(0).doubleValue();
+            double h = dimensions.get(2).doubleValue();
+            return Math.PI * Math.pow(d/2,2) * h;
+        }else if(model == "sphere"){
+            double r = dimensions.get(0).doubleValue()/2;
+            return (4/3)*Math.PI*Math.pow(r,3);
+        }
+        if(model == "pyramid"){
+            double l = dimensions.get(0).doubleValue();
+            double w = dimensions.get(1).doubleValue();
+            double h = dimensions.get(2).doubleValue();
+            return (l*w*h)/3;
+        }
+        return 0;
+    }
+
+    @Nullable
+    private Node addNode(TransformableNode model, Vector3 position, String name, float content) {
+        Node node = new Node();
+        node.setParent(model);
+        node.setEnabled(false);
+        node.setLocalPosition(position);
+        node.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
+        node.setName(name);
+        ViewRenderable.builder()
+                        .setView(this, R.layout.view_model_title)
+                        .build()
+                        .thenAccept(renderable -> {
+                                ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(content));
+                            node.setRenderable(renderable);
+                        }).exceptionally(throwable -> {
+                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                            return null;
+                        });
+        return node;
+    }
+
+    @Nullable
+    private Node addNode(TransformableNode model, Vector3 position, String name, float content, Quaternion quaternion ) {
+        Node node = new Node();
+        node.setParent(model);
+        node.setEnabled(false);
+        node.setLocalPosition(position);
+        node.setLocalRotation(quaternion);
+        node.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
+        node.setName(name);
+        ViewRenderable.builder()
+                .setView(this, R.layout.view_model_title)
+                .build()
+                .thenAccept(renderable -> {
+                    ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(content));
+                    node.setRenderable(renderable);
+                }).exceptionally(throwable -> {
+                    Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                    return null;
+                });
+        return node;
     }
 }

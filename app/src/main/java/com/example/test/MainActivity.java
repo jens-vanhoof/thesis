@@ -20,6 +20,7 @@ import com.google.ar.sceneform.ArSceneView;
 import com.google.ar.sceneform.Node;
 import com.google.ar.sceneform.SceneView;
 import com.google.ar.sceneform.Sceneform;
+import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ModelRenderable;
 import com.google.ar.sceneform.rendering.Renderable;
@@ -39,6 +40,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.w3c.dom.Text;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,16 +53,14 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
 
     private ArFragment arFragment;
     private Renderable model;
-    private ViewRenderable diameterLabel;
-    private ViewRenderable heightLabel;
-    private ViewRenderable widthLabel;
-    private ViewRenderable lengthLabel;
     private List<Integer> dimensions = new ArrayList();
     private boolean height = false;
     private boolean width = false;
     private boolean diameter = false;
 
     private boolean length = false;
+    private String source;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -202,7 +203,9 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
                     MainActivity activity = weakActivity.get();
                     if (activity != null) {
                         Node modelNode = new Node();
+                        modelNode.setName("kaka");
                         modelNode.setRenderable(model);
+                        source = name;
                         activity.model = modelNode.getRenderable();
                     }
                 })
@@ -213,84 +216,7 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
                 });
     }
     public void loadModels(){
-        WeakReference<MainActivity> weakActivity = new WeakReference<>(this);
-        ModelRenderable.builder()
-                .setSource(this, Uri.parse("models/sphere.glb"))
-                .setIsFilamentGltf(true)
-                .setAsyncLoadEnabled(true)
-                .build()
-                .thenAccept(model -> {
-                    MainActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.model = model;
 
-                    }
-                })
-                .exceptionally(throwable -> {
-                    Toast.makeText(
-                            this, "Unable to load model", Toast.LENGTH_LONG).show();
-                    return null;
-                });
-        ViewRenderable.builder()
-                .setView(this, R.layout.view_model_title)
-                .build()
-                .thenAccept(viewRenderable -> {
-                    MainActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.diameterLabel = viewRenderable;
-                    }
-
-
-                })
-                .exceptionally(throwable -> {
-                    Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                    return null;
-                });
-        ViewRenderable.builder()
-                .setView(this, R.layout.view_model_title)
-                .build()
-                .thenAccept(viewRenderable -> {
-                    MainActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.heightLabel = viewRenderable;
-                    }
-
-
-                })
-                .exceptionally(throwable -> {
-                    Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                    return null;
-                });
-        ViewRenderable.builder()
-                .setView(this, R.layout.view_model_title)
-                .build()
-                .thenAccept(viewRenderable -> {
-                    MainActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.widthLabel = viewRenderable;
-                    }
-
-
-                })
-                .exceptionally(throwable -> {
-                    Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                    return null;
-                });
-        ViewRenderable.builder()
-                .setView(this, R.layout.view_model_title)
-                .build()
-                .thenAccept(viewRenderable -> {
-                    MainActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.lengthLabel = viewRenderable;
-                    }
-
-
-                })
-                .exceptionally(throwable -> {
-                    Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
-                    return null;
-                });
     }
     @Override
     public void onSessionConfiguration(Session session, Config config) {
@@ -298,26 +224,61 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
             config.setDepthMode(Config.DepthMode.AUTOMATIC);
         }
     }
-
+    private Node findNodeByName(List<Node> children,String name){
+        for (Node n : children) {
+            if(n.getName() == name) return n;
+        }
+        return null;
+    }
     private void updateDimensions(Node modelNode){
             Node node = arFragment.getTransformationSystem().getSelectedNode();
-            Vector3 vector = node.getWorldScale();
-            ViewRenderable view = (ViewRenderable) node.findByName("label").getRenderable();
-            ((TextView) view.getView().findViewById(R.id.test)).setText(Float.toString(vector.x));
-            //this is all the same instance and changes all visibles labels
+            if(node != null && node.getChildren() != null){
+                Vector3 vector = node.getChildren().get(0).getWorldScale();
+                if(this.diameter){
+                    Node diameter = findNodeByName(node.getChildren(),"diameter");
+                    ViewRenderable diameterView = (ViewRenderable) diameter.getRenderable();
+                    if(diameterView != null) ((TextView) diameterView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.x));
+                }
+                if(this.height){
+                    Node height = findNodeByName(node.getChildren(),"height");
+                    ViewRenderable heightView = (ViewRenderable) height.getRenderable();
+                    if(heightView != null) ((TextView) heightView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.y));
+                }
+                if(this.length){
+                    Node length = findNodeByName(node.getChildren(),"length");
+                    ViewRenderable lengthView = (ViewRenderable) length.getRenderable();
+                    if(lengthView != null) ((TextView) lengthView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.z));
+                }
+                if(this.width){
+                    Node width = findNodeByName(node.getChildren(),"width");
+                    ViewRenderable widthView = (ViewRenderable) width.getRenderable();
+                    if(widthView != null) ((TextView) widthView.getView().findViewById(R.id.test)).setText(String.format("%.2f", vector.x));
+                }
+                double volumeValue = 0;
+                if(node.getName() == "cylinder"){
+                    double d = vector.x/2;
+                    double h = vector.y;
+                    volumeValue = Math.PI * Math.pow(d,2) * h;
+                }else if(node.getName() == "sphere"){
+                    double r = vector.x/2;
+                    volumeValue = (4/3)*Math.PI*Math.pow(r,3);
+                }
+                if(node.getName() == "pyramid"){
+                    double l = vector.x;
+                    double w = vector.y;
+                    double h = vector.z;
+                    volumeValue = (l*w*h)/3;
+                }
 
-//            ((TextView) diameterLabel.getView().findViewById(R.id.test)).setText(Float.toString(vector.x));
-//            ((TextView) heightLabel.getView().findViewById(R.id.test)).setText(Float.toString(vector.y));
-//            ((TextView) widthLabel.getView().findViewById(R.id.test)).setText(Float.toString(vector.x));
-//            ((TextView) lengthLabel.getView().findViewById(R.id.test)).setText(Float.toString(vector.z));
-
+                TextView v = (TextView) findViewById(R.id.volume);
+                v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
+            }
     }
-    int i = 1;
     @Override
     public void onTapPlane(HitResult hitResult, Plane plane, MotionEvent motionEvent) {
 
-        if (model == null || diameterLabel == null) {
-            Toast.makeText(this, "Loading...", Toast.LENGTH_SHORT).show();
+        if (model == null) {
+            Toast.makeText(this, "no model present", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -329,6 +290,7 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         // Create the transformable model and add it to the anchor.
         TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
         Node modelNode = new Node();
+        model.setName(source);
         modelNode.setParent(model);
         RenderableInstance instance = modelNode.setRenderable(this.model);
         Box boundingBox = instance.getFilamentAsset().getBoundingBox();
@@ -348,75 +310,108 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
 //        Button btn = findViewById(R.id.stop);
 //        btn.setOnClickListener(view -> objectAnimator.start());
         model.select();
-        String name = "diameter " + i;
+
+        Node diameter = new Node();
+        diameter.setParent(model);
+        diameter.setEnabled(false);
+        diameter.setLocalPosition(new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f));
+        diameter.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
+        diameter.setName("diameter");
         ViewRenderable.builder()
                         .setView(this, R.layout.view_model_title)
-                                .build()
-                                        .thenAccept(renderable -> {
-                                            ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(2)));
-                                            Node diameter = new Node();
-                                            diameter.setParent(modelNode);
-                                            diameter.setEnabled(false);
-                                            diameter.setLocalPosition(new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f));
-                                            diameter.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-                                            diameter.setRenderable(renderable);
-                                            diameter.setName("label");
-                                            diameter.setEnabled(true);
-                                        });
-    i++;
-        arFragment.getArSceneView().getScene().addOnUpdateListener(view -> updateDimensions(modelNode));
-//        Node diameter = new Node();
-//        diameter.setParent(model);
-//        diameter.setEnabled(false);
-//        diameter.setLocalPosition(new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f));
-//        ((TextView) diameterLabel.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
-//
-//
-//        diameter.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-//        diameter.setRenderable(diameterLabel);
+                        .build()
+                        .thenAccept(renderable -> {
+                                ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
+                                diameter.setRenderable(renderable);
+                        }).exceptionally(throwable -> {
+                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                            return null;
+                        });
 
         Node height = new Node();
         height.setParent(model);
         height.setEnabled(false);
-
         height.setLocalPosition(new Vector3((float)dimensions.get(0)/100, ((float)dimensions.get(2)/100)/2-0.04f, 0.0f));
-        ((TextView) heightLabel.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(2)));
-
-
         height.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        height.setRenderable(heightLabel);
-        Node width = new Node();
-        width.setParent(model);
-        width.setEnabled(false);
+        height.setName("height");
+        ViewRenderable.builder()
+                        .setView(this, R.layout.view_model_title)
+                        .build()
+                        .thenAccept(renderable -> {
+                                ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(2)));
+                                height.setRenderable(renderable);
+                        }).exceptionally(throwable -> {
+                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                            return null;
+                        });
 
-        width.setLocalPosition(new Vector3((float)dimensions.get(0)/100, 0.0f, 0.0f));
-        ((TextView) widthLabel.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
-
-
-        width.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        width.setRenderable(widthLabel);
         Node length = new Node();
         length.setParent(model);
         length.setEnabled(false);
-
-        length.setLocalPosition(new Vector3(0.0f, 0.0f, (float)dimensions.get(0)/100));
-        ((TextView) lengthLabel.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(1)));
-
-
+        length.setLocalPosition(new Vector3((float)dimensions.get(0)/100, -0.08f, 0.0f));
+        length.setLocalRotation(Quaternion.axisAngle(new Vector3(0f,1f,0f),90));
         length.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
-        length.setRenderable(lengthLabel);
+        length.setName("length");
+        ViewRenderable.builder()
+                        .setView(this, R.layout.view_model_title)
+                        .build()
+                        .thenAccept(renderable -> {
+                            ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(0)));
+                            length.setRenderable(renderable);
+                        }).exceptionally(throwable -> {
+                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                            return null;
+                        });
+
+        Node width = new Node();
+        width.setParent(model);
+        width.setEnabled(false);
+        width.setLocalPosition(new Vector3(0.0f, -0.08f, (float)dimensions.get(0)/100));
+        width.setLocalScale(new Vector3(0.4f,0.4f,0.4f));
+        width.setName("width");
+        ViewRenderable.builder()
+                        .setView(this, R.layout.view_model_title)
+                        .build()
+                        .thenAccept(renderable -> {
+                            ((TextView) renderable.getView().findViewById(R.id.test)).setText(Float.toString(dimensions.get(1)));
+                            width.setRenderable(renderable);
+                        }).exceptionally(throwable -> {
+                            Toast.makeText(this, "Unable to load model", Toast.LENGTH_LONG).show();
+                            return null;
+                        });
+        double volumeValue = 0;
+        if(model.getName() == "cylinder"){
+            double d = dimensions.get(0).doubleValue();
+            double h = dimensions.get(2).doubleValue();
+            volumeValue = Math.PI * Math.pow(d/2,2) * h;
+        }else if(model.getName() == "sphere"){
+            double r = dimensions.get(0).doubleValue()/2;
+            volumeValue = (4/3)*Math.PI*Math.pow(r,3);
+        }
+        if(model.getName() == "pyramid"){
+            double l = dimensions.get(0).doubleValue();
+            double w = dimensions.get(1).doubleValue();
+            double h = dimensions.get(2).doubleValue();
+            volumeValue = (l*w*h)/3;
+        }
+
+        TextView v = (TextView) findViewById(R.id.volume);
+        v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
+        arFragment.getArSceneView().getScene().addOnUpdateListener(view -> updateDimensions(model));
+
 
         if(this.height){
             height.setEnabled(true);
         }
         if(this.diameter){
-            //diameter.setEnabled(true);
+            diameter.setEnabled(true);
+        }
+        if(this.length){
+            height.setLocalPosition(new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f));
+            length.setEnabled(true);
         }
         if(this.width){
             width.setEnabled(true);
-        }
-        if(this.length){
-            length.setEnabled(true);
         }
 
     }

@@ -26,17 +26,18 @@
                 android:layout_width="100dp"
                 android:layout_height="wrap_content"
                 android:text="Diameter :" />
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/diameter"
-                android:outlineAmbientShadowColor="@color/black"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="diameter in cm"
-                android:inputType="number"
-                android:gravity="center_vertical"
-                android:singleLine="true"
                 android:layout_margin="10dp"
-                android:background="@drawable/text_input_border"/>
+                android:background="@drawable/text_input_border"
+                android:gravity="center_vertical"
+                android:hint="Edges in cm"
+                android:inputType="number"
+                android:outlineAmbientShadowColor="@color/black"
+                android:singleLine="true" />
         </LinearLayout>
 
     </com.google.android.material.textfield.TextInputLayout>

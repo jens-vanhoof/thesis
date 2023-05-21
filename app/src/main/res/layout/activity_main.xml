@@ -18,12 +18,11 @@
             android:layout_height="wrap_content"
             android:gravity="center_horizontal">
 
-
             <Button
-                android:id="@+id/sphere"
+                android:id="@+id/cube"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="sphere" />
+                android:text="cube" />
 
             <Button
                 android:id="@+id/pyramid"
@@ -37,6 +36,7 @@
                 android:layout_height="wrap_content"
                 android:text="cylinder" />
         </LinearLayout>
+
         <TextView
             android:id="@+id/volume"
             android:layout_width="wrap_content"
@@ -49,8 +49,44 @@
             android:shadowDx="0"
             android:shadowDy="0"
             android:shadowRadius="5" />
-
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center">
+            <Switch
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/toggleMethod"
+                android:text="Volume"/>
+            <TextView
+                android:layout_width="wrap_content"
+                style="@android:style/TextAppearance.Material"
+                android:text="Surface Area"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
     </LinearLayout>
-
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_gravity="bottom">
+        <LinearLayout
+            android:id="@+id/hideSurfaceArea"
+            android:visibility="invisible"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center">
+            <Switch
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/toggleFold"
+                android:text="Folded"/>
+            <TextView
+                android:layout_width="wrap_content"
+                style="@android:style/TextAppearance.Material"
+                android:text="Unfolded"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+    </LinearLayout>
 
 </FrameLayout>

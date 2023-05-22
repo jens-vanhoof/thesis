@@ -20,6 +20,7 @@ import com.google.ar.sceneform.ArSceneView;
 import com.google.ar.sceneform.Node;
 import com.google.ar.sceneform.SceneView;
 import com.google.ar.sceneform.Sceneform;
+import com.google.ar.sceneform.animation.ModelAnimator;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ModelRenderable;
@@ -30,20 +31,24 @@ import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.BaseArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 
+import android.animation.Animator;
+import android.animation.ObjectAnimator;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements FragmentOnAttachListener,
         BaseArFragment.OnTapArPlaneListener,
@@ -59,7 +64,10 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
 
     private boolean length = false;
     private String source;
-
+    private ObjectAnimator unfold,fold,closed,open;
+    private UUID currentId;
+    private HashMap<UUID,String> animationStates = new HashMap<>();
+    private HashMap<String,ObjectAnimator> animators = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,15 +83,23 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
             }
         }
 
-        //Button cube = findViewById(R.id.cube);
         Button pyramid = findViewById(R.id.pyramid);
-        Button sphere  = findViewById(R.id.sphere);
+        Button cube  = findViewById(R.id.cube);
         Button cylinder = findViewById(R.id.cylinder);
-        //cube.setOnClickListener(view -> loadModel("cube"));
+        Switch toggleMethod = findViewById(R.id.toggleMethod);
+        toggleMethod.setOnClickListener(view -> {
+            LinearLayout hide = findViewById(R.id.hideSurfaceArea);
+            if (toggleMethod.isChecked()){
+                hide.setVisibility(View.VISIBLE);
+            }
+            else{
+                hide.setVisibility(View.INVISIBLE);
+            }
+        });
+
         pyramid.setOnClickListener(view -> pyramidDialog("pyramid"));
-        sphere.setOnClickListener(view -> sphereDialog("sphere"));
+        cube.setOnClickListener(view -> cubeDialog("cube"));
         cylinder.setOnClickListener(view -> cylinderDialog("cylinder"));
-        loadModels();
     }
 
     public void cylinderDialog( String model) {
@@ -146,10 +162,10 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         AlertDialog dialog = alert.create();
         dialog.show();
     }
-    public void sphereDialog(String model) {
+    public void cubeDialog(String model) {
         LayoutInflater inflater = getLayoutInflater();
-        View alertLayout = inflater.inflate(R.layout.layout_custom_dialog_sphere, null);
-        final TextInputEditText diameterField = alertLayout.findViewById(R.id.diameter);
+        View alertLayout = inflater.inflate(R.layout.layout_custom_dialog_cube, null);
+        final TextInputEditText ribbeField = alertLayout.findViewById(R.id.ribbe);
 
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         alert.setTitle("Dimensions");
@@ -161,7 +177,7 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
 
         alert.setPositiveButton("Done", (dialog, which) -> {
             dimensions.clear();
-            int x = Integer.parseInt(diameterField.getText().toString());
+            int x = Integer.parseInt(ribbeField.getText().toString());
             dimensions.add(x);
             dimensions.add(x);
             dimensions.add(x);
@@ -180,7 +196,6 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
             arFragment.setOnTapArPlaneListener(this);
         }
     }
-    private GestureDetector gestureDetector;
     @Override
     public void onViewCreated(ArSceneView arSceneView) {
         arFragment.setOnViewCreatedListener(null);
@@ -192,6 +207,7 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         WeakReference<MainActivity> weakActivity = new WeakReference<>(this);
         height = false;
         diameter = false;
+        length = false;
         width = false;
         ModelRenderable.builder()
                 .setSource(this, Uri.parse("models/"+name+".glb"))
@@ -214,9 +230,6 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
                     return null;
                 });
     }
-    public void loadModels(){
-
-    }
     @Override
     public void onSessionConfiguration(Session session, Config config) {
         if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
@@ -229,17 +242,30 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         }
         return null;
     }
-    private void updateDimensions(Node modelNode){
+    private void updateDimensions(){
             Node node = arFragment.getTransformationSystem().getSelectedNode();
             if(node != null && node.getChildren() != null){
-                Vector3 vector = node.getChildren().get(0).getWorldScale();
+                Node model = node.getChildren().get(0);
+                UUID nodeId = ((CustomTransformableNode) node).getIdentifier();
+                if(currentId != nodeId){
+                    currentId = nodeId;
+                    updateModelAnimators();
+                }
+                Switch toggleFold = findViewById(R.id.toggleFold);
+                if(animationStates.get(currentId) == "Open"){
+                    toggleFold.setChecked(true);
+                }
+                if(animationStates.get(currentId) == "Closed"){
+                    toggleFold.setChecked(false);
+                }
+                Vector3 vector = model.getWorldScale();
                 updateTextFields(this.diameter, node, "diameter", vector.x);
                 updateTextFields(this.height, node, "height", vector.y);
                 updateTextFields(this.length, node, "length", vector.z);
                 updateTextFields(this.width, node, "width", vector.x);
-                double volumeValue = getVolumeValue(node.getName());
+                double volumeValue = getVolumeValue(node.getName(),vector);
 
-                TextView v = (TextView) findViewById(R.id.volume);
+                TextView v = findViewById(R.id.volume);
                 v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
             }
     }
@@ -266,9 +292,11 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         anchorNode.setParent(arFragment.getArSceneView().getScene());
 
         // Create the transformable model and add it to the anchor.
-        TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
-        Node modelNode = new Node();
+        TransformableNode model = new CustomTransformableNode(arFragment.getTransformationSystem());
         model.setName(source);
+        currentId = UUID.randomUUID();
+        ((CustomTransformableNode) model).setIdentifier(currentId);
+        Node modelNode = new Node();
         modelNode.setParent(model);
         RenderableInstance instance = modelNode.setRenderable(this.model);
         Box boundingBox = instance.getFilamentAsset().getBoundingBox();
@@ -278,15 +306,32 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         if (boundingBox != null) {
             modelNode.setLocalScale(test);
         }
-        //anchorNode.setLocalScale(test);
         model.setParent(anchorNode);
-        //model.setRenderable(this.model).animate(true).start();
 
-//        model.setRenderable(this.model);
-//        ModelAnimator.ofAnimationFrame(model.getRenderableInstance(), "Idle",this.model.getAnimationFrameRate()).start();
-//        ObjectAnimator objectAnimator = ModelAnimator.ofAnimation(model.getRenderableInstance(),"Walk");
-//        Button btn = findViewById(R.id.stop);
-//        btn.setOnClickListener(view -> objectAnimator.start());
+        RenderableInstance renderableInstance = model.getChildren().get(0).getRenderableInstance();
+        ModelAnimator.ofAnimationFrame( renderableInstance, "Closed",this.model.getAnimationFrameRate()).start();
+        animationStates.put(currentId,"Closed");
+        createInitialModelAnimators(renderableInstance);
+
+
+        Switch toggle = findViewById(R.id.toggleFold);
+        toggle.setOnClickListener(view -> {
+            if (toggle.isChecked()){
+                toggle.setEnabled(false);
+                closed.end();
+                animationStates.put(currentId,"Unfold");
+                animate(unfold, open);
+                unfold.start();
+            }
+            else{
+                toggle.setEnabled(false);
+                open.end();
+                animate(fold,closed);
+                animationStates.put(currentId,"Fold");
+                fold.start();
+            }
+        });
+
         model.select();
 
         Vector3 diameterPosition = new Vector3(0.0f, (float)dimensions.get(2)/100+0.04f, 0.0f);
@@ -301,11 +346,11 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         Vector3 widthPosition = new Vector3(0.0f, -0.08f, (float)dimensions.get(0)/100);
         Node width = addNode(model,widthPosition,"width",dimensions.get(1));
 
-        double volumeValue = getVolumeValue(model.getName());
+        double volumeValue = getVolumeValue(model.getName(),new Vector3((float)dimensions.get(0),(float)dimensions.get(2),(float)dimensions.get(1)));
 
-        TextView v = (TextView) findViewById(R.id.volume);
+        TextView v = findViewById(R.id.volume);
         v.setText(String.format("Volume=%.2fcm\u00B3", volumeValue));
-        arFragment.getArSceneView().getScene().addOnUpdateListener(view -> updateDimensions(model));
+        arFragment.getArSceneView().getScene().addOnUpdateListener(view -> updateDimensions());
 
 
         if(this.height){
@@ -323,20 +368,68 @@ public class MainActivity extends AppCompatActivity implements FragmentOnAttachL
         }
 
     }
+    private void updateModelAnimators(){
+        unfold = animators.get(currentId.toString()+",unfold");
+        fold = animators.get(currentId.toString()+",fold");
+        open = animators.get(currentId.toString()+",open");
+        closed = animators.get(currentId.toString()+",closed");
+    }
+    private void createInitialModelAnimators(RenderableInstance renderableInstance) {
+        unfold = ModelAnimator.ofAnimation(renderableInstance,"Unfold");
+        unfold.setPropertyName("Unfold");
+        open = ModelAnimator.ofAnimation(renderableInstance,"Open");
+        open.setPropertyName("Open");
+        fold = ModelAnimator.ofAnimation(renderableInstance,"Fold");
+        fold.setPropertyName("Fold");
+        closed = ModelAnimator.ofAnimation(renderableInstance,"Closed");
+        closed.setPropertyName("Closed");
+        animators.put(currentId.toString()+",unfold",unfold);
+        animators.put(currentId.toString()+",open",open);
+        animators.put(currentId.toString()+",fold",fold);
+        animators.put(currentId.toString()+",closed",closed);
+    }
 
-    private double getVolumeValue(String model) {
+    private void animate(ObjectAnimator startState, ObjectAnimator endState) {
+        startState.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animator) {
+                // Animation started
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animator) {
+                endState.start();
+                animationStates.put(currentId,endState.getPropertyName());// Start the 'open' animation
+                findViewById(R.id.toggleFold).setEnabled(true);
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animator) {
+                // Animation canceled
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animator) {
+                // Animation repeated
+                startState.end();
+            }
+        });
+
+    }
+
+    private double getVolumeValue(String model,Vector3 vector) {
         if(model == "cylinder"){
-            double d = dimensions.get(0).doubleValue();
-            double h = dimensions.get(2).doubleValue();
+            double d = vector.x;
+            double h = vector.y;
             return Math.PI * Math.pow(d/2,2) * h;
-        }else if(model == "sphere"){
-            double r = dimensions.get(0).doubleValue()/2;
-            return (4/3)*Math.PI*Math.pow(r,3);
+        }else if(model == "cube"){
+            double r = vector.x;
+            return Math.pow(r,3);
         }
         if(model == "pyramid"){
-            double l = dimensions.get(0).doubleValue();
-            double w = dimensions.get(1).doubleValue();
-            double h = dimensions.get(2).doubleValue();
+            double l = vector.x;
+            double w = vector.y;
+            double h = vector.z;
             return (l*w*h)/3;
         }
         return 0;

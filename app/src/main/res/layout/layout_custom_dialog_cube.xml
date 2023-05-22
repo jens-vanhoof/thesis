@@ -27,11 +27,11 @@
                 android:layout_height="wrap_content"
                 android:text="Diameter :" />
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/diameter"
+                android:id="@+id/ribbe"
                 android:outlineAmbientShadowColor="@color/black"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="diameter in cm"
+                android:hint="Edges in cm"
                 android:inputType="number"
                 android:gravity="center_vertical"
                 android:singleLine="true"

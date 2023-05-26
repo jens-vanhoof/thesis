@@ -25,7 +25,7 @@
                 android:id="@+id/textView"
                 android:layout_width="100dp"
                 android:layout_height="wrap_content"
-                android:text="Diameter :" />
+                android:text="Edges :" />
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/ribbe"
                 android:outlineAmbientShadowColor="@color/black"

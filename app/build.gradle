@@ -33,7 +33,7 @@ android {
 dependencies {
     implementation "androidx.appcompat:appcompat:1.6.1"
     implementation "androidx.fragment:fragment:1.5.6"
-
+    implementation "io.github.iffanmajid:katexmathview:1.0.3"
     implementation "com.gorisse.thomas.sceneform:sceneform:1.21.0"
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
